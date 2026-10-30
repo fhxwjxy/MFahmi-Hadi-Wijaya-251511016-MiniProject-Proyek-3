@@ -63,5 +63,15 @@
         <x-input-error :messages="$errors->get('deskripsi')" class="mt-2" />
     </div>
 
+    <div>
+        <x-input-label for="bukti" value="Bukti pendukung (JPG/PNG/PDF, maks. 2 MB)" />
+        <input id="bukti" name="bukti" type="file" accept=".jpg,.jpeg,.png,.pdf" class="mt-1 block w-full text-sm">
+        <x-input-error :messages="$errors->get('bukti')" class="mt-2" />
+        @if ($laporan?->bukti_path)
+            <p class="text-sm text-gray-500 mt-1">Bukti saat ini: {{ $laporan->bukti_nama }}. Unggah file baru untuk
+                menggantinya.</p>
+        @endif
+    </div>
+
     <x-primary-button>Kirim</x-primary-button>
 </div>

@@ -23,13 +23,6 @@ return new class extends Migration {
             $table->timestamps();
         });
 
-        Schema::create('kota_kabupaten', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('provinsi_id')->constrained('provinsi')->restrictOnDelete();
-            $table->string('nama', 100);
-            $table->timestamps();
-        });
-
         Schema::create('kecamatan', function (Blueprint $table) {
             $table->id();
             $table->foreignId('kota_kabupaten_id')->constrained('kota_kabupaten')->restrictOnDelete();

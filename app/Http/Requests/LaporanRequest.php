@@ -30,6 +30,7 @@ class LaporanRequest extends FormRequest
             'deskripsi' => ['required', 'string', 'min:10', 'max:2000'],
             'tingkat_kondisi' => ['required', 'in:ringan,sedang,berat'],
             'waktu_kejadian' => ['required', 'date', 'before_or_equal:now'],
+            'bukti' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'],
         ];
     }
 
@@ -39,6 +40,8 @@ class LaporanRequest extends FormRequest
             'latitude.between' => 'Latitude harus berada di wilayah indonesia (-11 sampai 6)',
             'longtitude.between' => 'Longtitude harus berada di wilayah Indonesia (95 sampai 141)',
             'waktu_kejadian.before_or_equal' => 'Waktu kejadian tidak boleh masa depan/belum terjadi',
+            'bukti.mimes' => 'Bukti harus file JPG, JPEG, PNG, atau PDF.',
+            'bukti.max' => 'Ukuran bukti maksimal 2 MB.',
         ];
     }
 }
