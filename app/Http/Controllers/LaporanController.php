@@ -8,17 +8,20 @@ use App\Models\Lokasi;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Gate;
 
 class LaporanController extends Controller
 {
     public function index(Request $request)
     {
-        $laporans = Laporan::with('lokasi.desaKelurahan')
-            ->where('pelapor_id', $request->user()->id)
-            ->latest()
-            ->paginate(10);
+        $query = Laporan::with('lokasi.desaKelurahan')->latest();
 
-        return view('laporan.index', compact('laporans'));
+        if ($request->user()->punyaRole('pelapor')) {
+            $query->where('pelapor_id', $request->user()->id);
+        }
+
+        return view('laporan.index', ['laporans' => $query->paginate(10)]);
     }
 
     public function create()
@@ -28,6 +31,68 @@ class LaporanController extends Controller
         ]);
     }
 
+    public function show(Laporan $laporan)
+    {
+        Gate::authorize('view', $laporan);
+        $laporan->load('pelapor', 'lokasi.desaKelurahan.kecamatan.kotaKabupaten.provinsi');
+        return view('laporan.show', compact('laporan'));
+    }
+
+    public function edit(Laporan $laporan)
+    {
+        Gate::authorize('update', $laporan);
+        return view('laporan.edit', [
+            'laporan' => $laporan->load('lokasi'),
+            'desa' => DesaKelurahan::with('kecamatan')->orderBy('nama')->get(),
+        ]);
+    }
+
+    public function update(LaporanRequest $request, Laporan $laporan)
+    {
+        Gate::authorize('update', $laporan);
+
+        $data = $request->validated();
+        $lama = null;
+
+        DB::transaction(function () use ($request, $laporan, $data, &$lama) {
+            $laporan->lokasi->update(Arr::only($data, [
+                'desa_kelurahan_id',
+                'alamat_spesifik',
+                'latitude',
+                'longitude',
+            ]));
+
+            if ($request->hasFile('bukti')) {
+                $file = $request->file('bukti');
+                $lama = $laporan->bukti_path;
+                $laporan->bukti_path = $file->store('bukti');
+                $laporan->bukti_nama = $file->getClientOriginalName();
+            }
+
+            $laporan->fill(Arr::only($data, ['deskripsi', 'tingkat_kondisi', 'waktu_kejadian']));
+
+            if ($laporan->status_laporan === 'perlu_perbaikan') {
+                $laporan->status_laporan = 'baru'; // dikirim ulang setelah diperbaiki
+            }
+
+            $laporan->save();
+        });
+
+        if ($lama) {
+            Storage::delete($lama);
+        }
+
+        return redirect()->route('laporan.show', $laporan)->with('success', 'Laporan berhasil diperbarui.');
+    }
+
+    public function bukti(Laporan $laporan)
+    {
+        Gate::authorize('view', $laporan);
+
+        abort_unless($laporan->bukti_path && Storage::exists($laporan->bukti_path), 404);
+
+        return Storage::response($laporan->bukti_path, $laporan->bukti_nama);
+    }
     public function store(LaporanRequest $request)
     {
         $data = $request->validated();

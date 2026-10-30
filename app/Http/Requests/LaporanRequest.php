@@ -12,7 +12,9 @@ class LaporanRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $laporan = $this->route('laporan');
+
+        return $laporan ? $this->user()->can('update', $laporan) : true;
     }
 
     /**
