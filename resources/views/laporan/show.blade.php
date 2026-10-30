@@ -52,6 +52,55 @@
                 @endcan
             </div>
 
+            <div class="bg-white shadow sm:rounded-lg p-6">
+                <h3 class="font-semibold mb-2">Hasil peninjauan</h3>
+                @forelse ($laporan->tinjau->sortByDesc('tgl_pemeriksaan') as $t)
+                    <div class="border-t py-2 text-sm">
+                        <div class="text-gray-500">{{ $t->tgl_pemeriksaan->format('d M Y H:i') }} oleh
+                            {{ $t->relawan->name }} ({{ $t->hasil_pemeriksaan }})</div>
+                        <div>{{ $t->catatan }}</div>
+                    </div>
+                @empty
+                    <p class="text-sm text-gray-500">Belum ada peninjauan.</p>
+                @endforelse
+            </div>
+
+            @if (auth()->user()->punyaRole('relawan'))
+            @php($opsi = array_values(array_intersect(App\Models\Laporan::TRANSISI[$laporan->status_laporan] ?? [], ['ditinjau', 'perlu_perbaikan', 'perlu_diteruskan'])))
+            @if ($opsi)
+                <form method="POST" action="{{ route('laporan.tinjau', $laporan) }}"
+                    class="bg-white shadow sm:rounded-lg p-6 space-y-3">
+                    @csrf
+                    <h3 class="font-semibold">Tinjau laporan</h3>
+                    <select name="hasil_pemeriksaan" required class="block w-full border-gray-300 rounded-md">
+                        <option value="lengkap">Informasi lengkap dan wajar</option>
+                        <option value="kurang_lengkap">Informasi kurang lengkap</option>
+                        <option value="tidak_wajar">Informasi tidak wajar</option>
+                    </select>
+                    <select name="status_baru" required class="block w-full border-gray-300 rounded-md">
+                        @foreach ($opsi as $o)
+                            <option value="{{ $o }}">{{ $o }}</option>
+                        @endforeach
+                    </select>
+                    <textarea name="catatan" rows="3" required placeholder="Catatan peninjauan"
+                        class="block w-full border-gray-300 rounded-md"></textarea>
+                    <x-primary-button>Simpan peninjauan</x-primary-button>
+                </form>
+            @endif
+            @endif
+
+            @if ($terkait->isNotEmpty())
+                <div class="bg-white shadow sm:rounded-lg p-6">
+                    <h3 class="font-semibold mb-2">Laporan lain di desa/kelurahan yang sama</h3>
+                    <ul class="list-disc ml-5 text-sm">
+                        @foreach ($terkait as $t)
+                            <li><a class="text-indigo-600 underline" href="{{ route('laporan.show', $t) }}">#{{ $t->id }}</a>
+                                ({{ $t->status_laporan }}, {{ $t->tingkat_kondisi }})</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
         </div>
     </div>
 </x-app-layout>

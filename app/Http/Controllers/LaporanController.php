@@ -34,8 +34,18 @@ class LaporanController extends Controller
     public function show(Laporan $laporan)
     {
         Gate::authorize('view', $laporan);
-        $laporan->load('pelapor', 'lokasi.desaKelurahan.kecamatan.kotaKabupaten.provinsi');
-        return view('laporan.show', compact('laporan'));
+
+        $laporan->load('pelapor', 'lokasi.desaKelurahan.kecamatan.kotaKabupaten.provinsi', 'tinjau.relawan');
+
+        $terkait = collect();
+        if (auth()->user()->punyaRole('relawan', 'koordinator')) {
+            $terkait = Laporan::with('lokasi')
+                ->where('id', '!=', $laporan->id)
+                ->whereHas('lokasi', fn($q) => $q->where('desa_kelurahan_id', $laporan->lokasi->desa_kelurahan_id))
+                ->latest()->limit(10)->get();
+        }
+
+        return view('laporan.show', compact('laporan', 'terkait'));
     }
 
     public function edit(Laporan $laporan)

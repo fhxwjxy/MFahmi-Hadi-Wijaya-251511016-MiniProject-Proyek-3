@@ -76,4 +76,9 @@ class Laporan extends Model
         $this->status_laporan = $baru;
         $this->save();
     }
+
+    public function tinjau()
+    {
+        return $this->hasMany(TinjauLaporan::class);
+    }
 }
