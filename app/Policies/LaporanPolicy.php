@@ -1,5 +1,4 @@
 <?php
-// app/Policies/LaporanPolicy.php
 namespace App\Policies;
 
 use App\Models\Laporan;
@@ -15,7 +14,7 @@ class LaporanPolicy
 
     public function update(User $user, Laporan $laporan): bool
     {
-        // 
-        return $laporan->pelapor_id === $user->id;
+        return $laporan->pelapor_id === $user->id
+            && in_array($laporan->status_laporan, ['baru', 'perlu_perbaikan'], true);
     }
 }
