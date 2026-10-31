@@ -81,4 +81,9 @@ class Laporan extends Model
     {
         return $this->hasMany(TinjauLaporan::class);
     }
+
+    public function penerusan()
+    {
+        return $this->hasMany(PenerusanLaporan::class);
+    }
 }

@@ -57,7 +57,8 @@
                 @forelse ($laporan->tinjau->sortByDesc('tgl_pemeriksaan') as $t)
                     <div class="border-t py-2 text-sm">
                         <div class="text-gray-500">{{ $t->tgl_pemeriksaan->format('d M Y H:i') }} oleh
-                            {{ $t->relawan->name }} ({{ $t->hasil_pemeriksaan }})</div>
+                            {{ $t->relawan->name }} ({{ $t->hasil_pemeriksaan }})
+                        </div>
                         <div>{{ $t->catatan }}</div>
                     </div>
                 @empty
@@ -100,6 +101,39 @@
                     </ul>
                 </div>
             @endif
+
+            <div class="bg-white shadow sm:rounded-lg p-6">
+                <h3 class="font-semibold mb-2">Penerusan ke pihak terkait</h3>
+                @forelse ($laporan->penerusan as $p)
+                    <div class="border-t py-2 text-sm">{{ $p->tgl_penerusan->format('d M Y H:i') }} ke
+                        {{ $p->pihakTujuan->nama_instansi }} ({{ $p->status_penerusan }}) {{ $p->catatan }}</div>
+                @empty
+                    <p class="text-sm text-gray-500">Belum ada penerusan.</p>
+                @endforelse
+
+                @if (auth()->user()->punyaRole('koordinator'))
+                    @if (in_array($laporan->status_laporan, ['perlu_diteruskan', 'diteruskan']))
+                        <form method="POST" action="{{ route('laporan.penerusan', $laporan) }}" class="mt-3 space-y-2">
+                            @csrf
+                            <select name="pihak_tujuan_id" required class="block w-full border-gray-300 rounded-md">
+                                @foreach ($pihak as $p)
+                                    <option value="{{ $p->id }}">{{ $p->nama_instansi }}</option>
+                                @endforeach
+                            </select>
+                            <x-text-input name="catatan" class="block w-full" placeholder="Catatan penerusan (opsional)" />
+                            <x-primary-button>Catat penerusan</x-primary-button>
+                        </form>
+                    @endif
+
+                    @if (in_array('selesai', App\Models\Laporan::TRANSISI[$laporan->status_laporan] ?? []))
+                        <form method="POST" action="{{ route('laporan.tutup', $laporan) }}" class="mt-3">
+                            @csrf
+                            @method('PATCH')
+                            <button class="px-3 py-2 bg-green-700 text-white rounded text-sm">Tandai selesai</button>
+                        </form>
+                    @endif
+                @endif
+            </div>
 
         </div>
     </div>

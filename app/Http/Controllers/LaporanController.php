@@ -5,6 +5,7 @@ use App\Http\Requests\LaporanRequest;
 use App\Models\DesaKelurahan;
 use App\Models\Laporan;
 use App\Models\Lokasi;
+use App\Models\PihakTujuan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -35,17 +36,20 @@ class LaporanController extends Controller
     {
         Gate::authorize('view', $laporan);
 
-        $laporan->load('pelapor', 'lokasi.desaKelurahan.kecamatan.kotaKabupaten.provinsi', 'tinjau.relawan');
+        $laporan->load('pelapor', 'lokasi.desaKelurahan.kecamatan.kotaKabupaten.provinsi', 'tinjau.relawan', 'penerusan.pihakTujuan');
 
+        $user = auth()->user();
         $terkait = collect();
-        if (auth()->user()->punyaRole('relawan', 'koordinator')) {
+        if ($user->punyaRole('relawan', 'koordinator')) {
             $terkait = Laporan::with('lokasi')
                 ->where('id', '!=', $laporan->id)
                 ->whereHas('lokasi', fn($q) => $q->where('desa_kelurahan_id', $laporan->lokasi->desa_kelurahan_id))
                 ->latest()->limit(10)->get();
         }
 
-        return view('laporan.show', compact('laporan', 'terkait'));
+        $pihak = $user->punyaRole('koordinator') ? PihakTujuan::orderBy('nama_instansi')->get() : collect();
+
+        return view('laporan.show', compact('laporan', 'terkait', 'pihak'));
     }
 
     public function edit(Laporan $laporan)

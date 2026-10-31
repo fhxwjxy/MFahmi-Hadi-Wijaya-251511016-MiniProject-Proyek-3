@@ -2,6 +2,11 @@
 
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\LaporanStatusController;
+use App\Http\Controllers\PenerusanLaporanController;
+use App\Http\Controllers\PenggunaController;
+use App\Http\Controllers\PihakTujuanController;
+use App\Http\Controllers\WilayahController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn() => redirect()->route('login'));
@@ -27,6 +32,22 @@ Route::middleware('auth')->group(function () {
     Route::put('/laporan/{laporan}', [LaporanController::class, 'update'])->name('laporan.update');
     Route::get('/laporan/{laporan}', [LaporanController::class, 'show'])->name('laporan.show');
     Route::get('/laporan/{laporan}/bukti', [LaporanController::class, 'bukti'])->name('laporan.bukti');
+
+    Route::middleware('role:koordinator')->group(function () {
+        Route::post('/laporan/{laporan}/penerusan', [PenerusanLaporanController::class, 'store'])->name('laporan.penerusan');
+        Route::patch('/laporan/{laporan}/tutup', [LaporanStatusController::class, 'tutup'])->name('laporan.tutup');
+
+        Route::resource('pihak-tujuan', PihakTujuanController::class)
+            ->only(['index', 'store', 'destroy'])
+            ->parameters(['pihak-tujuan' => 'pihakTujuan']);
+
+        Route::get('/wilayah', [WilayahController::class, 'index'])->name('wilayah.index');
+        Route::post('/wilayah', [WilayahController::class, 'store'])->name('wilayah.store');
+
+        Route::get('/pengguna', [PenggunaController::class, 'index'])->name('pengguna.index');
+        Route::post('/pengguna', [PenggunaController::class, 'store'])->name('pengguna.store');
+        Route::patch('/pengguna/{user}/status', [PenggunaController::class, 'toggleStatus'])->name('pengguna.status');
+    });
 });
 
 require __DIR__ . '/auth.php';
