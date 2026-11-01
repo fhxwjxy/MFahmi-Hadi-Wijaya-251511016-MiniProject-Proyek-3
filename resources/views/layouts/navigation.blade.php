@@ -30,6 +30,10 @@
                         <x-nav-link :href="route('pengguna.index')"
                             :active="request()->routeIs('pengguna.*')">Relawan</x-nav-link>
                     @endif
+
+                    @if (auth()->user()->punyaRole('relawan', 'koordinator'))
+                        <x-nav-link :href="route('rekap.index')" :active="request()->routeIs('rekap.*')">Rekap</x-nav-link>
+                    @endif
                 </div>
             </div>
 
@@ -107,6 +111,11 @@
                     :active="request()->routeIs('wilayah.*')">Wilayah</x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('pengguna.index')"
                     :active="request()->routeIs('pengguna.*')">Relawan</x-responsive-nav-link>
+            @endif
+
+            @if (auth()->user()->punyaRole('relawan', 'koordinator'))
+                <x-responsive-nav-link :href="route('rekap.index')"
+                    :active="request()->routeIs('rekap.*')">Rekap</x-responsive-nav-link>
             @endif
         </div>
 

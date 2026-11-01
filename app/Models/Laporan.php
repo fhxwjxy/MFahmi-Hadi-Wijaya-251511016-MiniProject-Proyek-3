@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class Laporan extends Model
 {
@@ -21,6 +22,26 @@ class Laporan extends Model
 
     protected $casts = ['waktu_kejadian' => 'datetime'];
 
+    public const STATUS = ['baru', 'perlu_perbaikan', 'ditinjau', 'perlu_diteruskan', 'diteruskan', 'selesai'];
+
+    public const AKTIF = ['baru', 'perlu_perbaikan', 'ditinjau', 'perlu_diteruskan', 'diteruskan'];
+    public const TRANSISI = [
+        'baru' => ['ditinjau', 'perlu_perbaikan'],
+        'perlu_perbaikan' => ['baru'],
+        'ditinjau' => ['perlu_diteruskan', 'selesai'],
+        'perlu_diteruskan' => ['diteruskan'],
+        'diteruskan' => ['selesai'],
+        'selesai' => [],
+    ];
+    public const PERAN_TUJUAN = [
+        'baru' => ['pelapor'],
+        'ditinjau' => ['relawan'],
+        'perlu_perbaikan' => ['relawan'],
+        'perlu_diteruskan' => ['relawan'],
+        'diteruskan' => ['koordinator'],
+        'selesai' => ['koordinator'],
+    ];
+
     public function pelapor()
     {
         return $this->belongsTo(User::class, 'pelapor_id');
@@ -31,27 +52,20 @@ class Laporan extends Model
         return $this->belongsTo(Lokasi::class);
     }
 
-    public const STATUS = ['baru', 'perlu_perbaikan', 'ditinjau', 'perlu_diteruskan', 'diteruskan', 'selesai'];
+    public function tinjau()
+    {
+        return $this->hasMany(TinjauLaporan::class);
+    }
 
-    public const AKTIF = ['baru', 'perlu_perbaikan', 'ditinjau', 'perlu_diteruskan', 'diteruskan'];
+    public function penerusan()
+    {
+        return $this->hasMany(PenerusanLaporan::class);
+    }
 
-    public const TRANSISI = [
-        'baru' => ['ditinjau', 'perlu_perbaikan'],
-        'perlu_perbaikan' => ['baru'],
-        'ditinjau' => ['perlu_diteruskan', 'selesai'],
-        'perlu_diteruskan' => ['diteruskan'],
-        'diteruskan' => ['selesai'],
-        'selesai' => [],
-    ];
-
-    public const PERAN_TUJUAN = [
-        'baru' => ['pelapor'],
-        'ditinjau' => ['relawan'],
-        'perlu_perbaikan' => ['relawan'],
-        'perlu_diteruskan' => ['relawan'],
-        'diteruskan' => ['koordinator'],
-        'selesai' => ['koordinator'],
-    ];
+    public function riwayat()
+    {
+        return $this->hasMany(RiwayatStatus::class)->orderByDesc('diubah_pada')->orderByDesc('id');
+    }
 
     public function scopeAktif($query)
     {
@@ -75,15 +89,5 @@ class Laporan extends Model
 
         $this->status_laporan = $baru;
         $this->save();
-    }
-
-    public function tinjau()
-    {
-        return $this->hasMany(TinjauLaporan::class);
-    }
-
-    public function penerusan()
-    {
-        return $this->hasMany(PenerusanLaporan::class);
     }
 }

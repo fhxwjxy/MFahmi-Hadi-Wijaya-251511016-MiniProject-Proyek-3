@@ -9,6 +9,7 @@ use App\Http\Controllers\PihakTujuanController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TinjauLaporanController;
 use App\Http\Controllers\WilayahController;
+use App\Http\Controllers\RekapController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn() => redirect()->route('login'));
@@ -32,6 +33,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/laporan/{laporan}/bukti', [LaporanController::class, 'bukti'])->name('laporan.bukti');
 
     Route::get('/wilayah/{desa}/laporan-aktif', [AreaInfoController::class, 'laporanAktif'])->name('wilayah.laporan-aktif');
+
+    Route::get('/rekap', [RekapController::class, 'index'])
+        ->middleware('role:relawan,koordinator')
+        ->name('rekap.index');
 
     Route::post('/laporan/{laporan}/tinjau', [TinjauLaporanController::class, 'store'])
         ->middleware('role:relawan')

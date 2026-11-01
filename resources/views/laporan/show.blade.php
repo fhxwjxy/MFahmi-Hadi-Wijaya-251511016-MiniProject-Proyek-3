@@ -67,27 +67,32 @@
             </div>
 
             @if (auth()->user()->punyaRole('relawan'))
-            @php($opsi = array_values(array_intersect(App\Models\Laporan::TRANSISI[$laporan->status_laporan] ?? [], ['ditinjau', 'perlu_perbaikan', 'perlu_diteruskan'])))
-            @if ($opsi)
-                <form method="POST" action="{{ route('laporan.tinjau', $laporan) }}"
-                    class="bg-white shadow sm:rounded-lg p-6 space-y-3">
-                    @csrf
-                    <h3 class="font-semibold">Tinjau laporan</h3>
-                    <select name="hasil_pemeriksaan" required class="block w-full border-gray-300 rounded-md">
-                        <option value="lengkap">Informasi lengkap dan wajar</option>
-                        <option value="kurang_lengkap">Informasi kurang lengkap</option>
-                        <option value="tidak_wajar">Informasi tidak wajar</option>
-                    </select>
-                    <select name="status_baru" required class="block w-full border-gray-300 rounded-md">
-                        @foreach ($opsi as $o)
-                            <option value="{{ $o }}">{{ $o }}</option>
-                        @endforeach
-                    </select>
-                    <textarea name="catatan" rows="3" required placeholder="Catatan peninjauan"
-                        class="block w-full border-gray-300 rounded-md"></textarea>
-                    <x-primary-button>Simpan peninjauan</x-primary-button>
-                </form>
-            @endif
+                @php
+                    $opsi = array_values(array_intersect(
+                        App\Models\Laporan::TRANSISI[$laporan->status_laporan] ?? [],
+                        ['ditinjau', 'perlu_perbaikan', 'perlu_diteruskan']
+                    ));
+                @endphp
+                @if ($opsi)
+                    <form method="POST" action="{{ route('laporan.tinjau', $laporan) }}"
+                        class="bg-white shadow sm:rounded-lg p-6 space-y-3">
+                        @csrf
+                        <h3 class="font-semibold">Tinjau laporan</h3>
+                        <select name="hasil_pemeriksaan" required class="block w-full border-gray-300 rounded-md">
+                            <option value="lengkap">Informasi lengkap dan wajar</option>
+                            <option value="kurang_lengkap">Informasi kurang lengkap</option>
+                            <option value="tidak_wajar">Informasi tidak wajar</option>
+                        </select>
+                        <select name="status_baru" required class="block w-full border-gray-300 rounded-md">
+                            @foreach ($opsi as $o)
+                                <option value="{{ $o }}">{{ $o }}</option>
+                            @endforeach
+                        </select>
+                        <textarea name="catatan" rows="3" required placeholder="Catatan peninjauan"
+                            class="block w-full border-gray-300 rounded-md"></textarea>
+                        <x-primary-button>Simpan peninjauan</x-primary-button>
+                    </form>
+                @endif
             @endif
 
             @if ($terkait->isNotEmpty())
@@ -106,7 +111,8 @@
                 <h3 class="font-semibold mb-2">Penerusan ke pihak terkait</h3>
                 @forelse ($laporan->penerusan as $p)
                     <div class="border-t py-2 text-sm">{{ $p->tgl_penerusan->format('d M Y H:i') }} ke
-                        {{ $p->pihakTujuan->nama_instansi }} ({{ $p->status_penerusan }}) {{ $p->catatan }}</div>
+                        {{ $p->pihakTujuan->nama_instansi }} ({{ $p->status_penerusan }}) {{ $p->catatan }}
+                    </div>
                 @empty
                     <p class="text-sm text-gray-500">Belum ada penerusan.</p>
                 @endforelse
@@ -116,8 +122,8 @@
                         <form method="POST" action="{{ route('laporan.penerusan', $laporan) }}" class="mt-3 space-y-2">
                             @csrf
                             <select name="pihak_tujuan_id" required class="block w-full border-gray-300 rounded-md">
-                                @foreach ($pihak as $p)
-                                    <option value="{{ $p->id }}">{{ $p->nama_instansi }}</option>
+                                @foreach ($pihak as $ph)
+                                    <option value="{{ $ph->id }}">{{ $ph->nama_instansi }}</option>
                                 @endforeach
                             </select>
                             <x-text-input name="catatan" class="block w-full" placeholder="Catatan penerusan (opsional)" />
@@ -135,6 +141,17 @@
                 @endif
             </div>
 
+            <div class="bg-white shadow sm:rounded-lg p-6">
+                <h3 class="font-semibold mb-2">Perkembangan laporan</h3>
+                @forelse ($laporan->riwayat as $r)
+                    <div class="border-t py-2 text-sm">
+                        {{ $r->diubah_pada->format('d M Y H:i') }}: {{ $r->status_sebelumnya }} ke {{ $r->status_baru }}
+                        @if ($r->pencatat) (oleh {{ $r->pencatat->name }}) @endif
+                    </div>
+                @empty
+                    <p class="text-sm text-gray-500">Belum ada perubahan status.</p>
+                @endforelse
+            </div>
         </div>
     </div>
 </x-app-layout>

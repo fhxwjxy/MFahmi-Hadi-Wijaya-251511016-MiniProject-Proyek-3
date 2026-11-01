@@ -1,30 +1,55 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Http\Requests\LaporanRequest;
 use App\Models\DesaKelurahan;
+use App\Models\Kecamatan;
 use App\Models\Laporan;
 use App\Models\Lokasi;
 use App\Models\PihakTujuan;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 
 class LaporanController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Laporan::with('lokasi.desaKelurahan')->latest();
+        $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'in:' . implode(',', Laporan::STATUS)],
+            'kondisi' => ['nullable', 'in:ringan,sedang,berat'],
+            'kecamatan' => ['nullable', 'integer', 'exists:kecamatan,id'],
+        ]);
+
+        $query = Laporan::with('pelapor', 'lokasi.desaKelurahan.kecamatan')->latest();
 
         if ($request->user()->punyaRole('pelapor')) {
             $query->where('pelapor_id', $request->user()->id);
         }
 
+        $query
+            ->when($request->filled('q'), function ($q) use ($request) {
+                $kata = '%' . $request->q . '%';
+                $q->where(function ($w) use ($kata) {
+                    $w->where('deskripsi', 'like', $kata)
+                        ->orWhereHas('lokasi', fn($l) => $l->where('alamat_spesifik', 'like', $kata));
+                });
+            })
+            ->when($request->filled('status'), fn($q) => $q->where('status_laporan', $request->status))
+            ->when($request->filled('kondisi'), fn($q) => $q->where('tingkat_kondisi', $request->kondisi))
+            ->when($request->filled('kecamatan'), fn($q) => $q->whereHas(
+                'lokasi.desaKelurahan',
+                fn($d) => $d->where('kecamatan_id', $request->kecamatan)
+            ));
+
         return view('laporan.index', [
-            'laporans' => $query->paginate(10),
+            'laporans' => $query->paginate(10)->withQueryString(),
             'desa' => DesaKelurahan::with('kecamatan')->orderBy('nama')->get(),
+            'kecamatan' => Kecamatan::orderBy('nama')->get(),
         ]);
     }
 
@@ -35,87 +60,12 @@ class LaporanController extends Controller
         ]);
     }
 
-    public function show(Laporan $laporan)
-    {
-        Gate::authorize('view', $laporan);
-
-        $laporan->load('pelapor', 'lokasi.desaKelurahan.kecamatan.kotaKabupaten.provinsi', 'tinjau.relawan', 'penerusan.pihakTujuan');
-
-        $user = auth()->user();
-        $terkait = collect();
-        if ($user->punyaRole('relawan', 'koordinator')) {
-            $terkait = Laporan::with('lokasi')
-                ->where('id', '!=', $laporan->id)
-                ->whereHas('lokasi', fn($q) => $q->where('desa_kelurahan_id', $laporan->lokasi->desa_kelurahan_id))
-                ->latest()->limit(10)->get();
-        }
-
-        $pihak = $user->punyaRole('koordinator') ? PihakTujuan::orderBy('nama_instansi')->get() : collect();
-
-        return view('laporan.show', compact('laporan', 'terkait', 'pihak'));
-    }
-
-    public function edit(Laporan $laporan)
-    {
-        Gate::authorize('update', $laporan);
-        return view('laporan.edit', [
-            'laporan' => $laporan->load('lokasi'),
-            'desa' => DesaKelurahan::with('kecamatan')->orderBy('nama')->get(),
-        ]);
-    }
-
-    public function update(LaporanRequest $request, Laporan $laporan)
-    {
-        Gate::authorize('update', $laporan);
-
-        $data = $request->validated();
-        $lama = null;
-
-        DB::transaction(function () use ($request, $laporan, $data, &$lama) {
-            $laporan->lokasi->update(Arr::only($data, [
-                'desa_kelurahan_id',
-                'alamat_spesifik',
-                'latitude',
-                'longitude',
-            ]));
-
-            if ($request->hasFile('bukti')) {
-                $file = $request->file('bukti');
-                $lama = $laporan->bukti_path;
-                $laporan->bukti_path = $file->store('bukti');
-                $laporan->bukti_nama = $file->getClientOriginalName();
-            }
-
-            $laporan->fill(Arr::only($data, ['deskripsi', 'tingkat_kondisi', 'waktu_kejadian']));
-
-            if ($laporan->status_laporan === 'perlu_perbaikan') {
-                $laporan->status_laporan = 'baru'; // dikirim ulang setelah diperbaiki
-            }
-
-            $laporan->save();
-        });
-
-        if ($lama) {
-            Storage::delete($lama);
-        }
-
-        return redirect()->route('laporan.show', $laporan)->with('success', 'Laporan berhasil diperbarui.');
-    }
-
-    public function bukti(Laporan $laporan)
-    {
-        Gate::authorize('view', $laporan);
-
-        abort_unless($laporan->bukti_path && Storage::exists($laporan->bukti_path), 404);
-
-        return Storage::response($laporan->bukti_path, $laporan->bukti_nama);
-    }
     public function store(LaporanRequest $request)
     {
         $data = $request->validated();
         $path = $nama = null;
 
-        if ($request->validated()) {
+        if ($request->hasFile('bukti')) {
             $file = $request->file('bukti');
             $path = $file->store('bukti');
             $nama = $file->getClientOriginalName();
@@ -147,6 +97,90 @@ class LaporanController extends Controller
             }
             throw $e;
         }
+
         return redirect()->route('laporan.index')->with('success', 'Laporan berhasil dikirim.');
+    }
+
+    public function show(Laporan $laporan)
+    {
+        Gate::authorize('view', $laporan);
+
+        $laporan->load(
+            'pelapor',
+            'lokasi.desaKelurahan.kecamatan.kotaKabupaten.provinsi',
+            'tinjau.relawan',
+            'penerusan.pihakTujuan',
+            'riwayat.pencatat'
+        );
+
+        $user = auth()->user();
+        $terkait = collect();
+        if ($user->punyaRole('relawan', 'koordinator')) {
+            $terkait = Laporan::with('lokasi')
+                ->where('id', '!=', $laporan->id)
+                ->whereHas('lokasi', fn($q) => $q->where('desa_kelurahan_id', $laporan->lokasi->desa_kelurahan_id))
+                ->latest()->limit(10)->get();
+        }
+
+        $pihak = $user->punyaRole('koordinator') ? PihakTujuan::orderBy('nama_instansi')->get() : collect();
+
+        return view('laporan.show', compact('laporan', 'terkait', 'pihak'));
+    }
+
+    public function edit(Laporan $laporan)
+    {
+        Gate::authorize('update', $laporan);
+
+        return view('laporan.edit', [
+            'laporan' => $laporan->load('lokasi'),
+            'desa' => DesaKelurahan::with('kecamatan')->orderBy('nama')->get(),
+        ]);
+    }
+
+    public function update(LaporanRequest $request, Laporan $laporan)
+    {
+        Gate::authorize('update', $laporan);
+
+        $data = $request->validated();
+        $lama = null;
+
+        DB::transaction(function () use ($request, $laporan, $data, &$lama) {
+            $laporan->lokasi->update(Arr::only($data, [
+                'desa_kelurahan_id',
+                'alamat_spesifik',
+                'latitude',
+                'longitude',
+            ]));
+
+            if ($request->hasFile('bukti')) {
+                $file = $request->file('bukti');
+                $lama = $laporan->bukti_path;
+                $laporan->bukti_path = $file->store('bukti');
+                $laporan->bukti_nama = $file->getClientOriginalName();
+            }
+
+            $laporan->fill(Arr::only($data, ['deskripsi', 'tingkat_kondisi', 'waktu_kejadian']));
+
+            if ($laporan->status_laporan === 'perlu_perbaikan') {
+                $laporan->status_laporan = 'baru';
+            }
+
+            $laporan->save();
+        });
+
+        if ($lama) {
+            Storage::delete($lama);
+        }
+
+        return redirect()->route('laporan.show', $laporan)->with('success', 'Laporan berhasil diperbarui.');
+    }
+
+    public function bukti(Laporan $laporan)
+    {
+        Gate::authorize('view', $laporan);
+
+        abort_unless($laporan->bukti_path && Storage::exists($laporan->bukti_path), 404);
+
+        return Storage::response($laporan->bukti_path, $laporan->bukti_nama);
     }
 }
