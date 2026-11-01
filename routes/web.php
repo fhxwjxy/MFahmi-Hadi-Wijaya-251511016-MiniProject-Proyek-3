@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\AreaInfoController;
 use App\Http\Controllers\LaporanController;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\LaporanStatusController;
 use App\Http\Controllers\PenerusanLaporanController;
 use App\Http\Controllers\PenggunaController;
 use App\Http\Controllers\PihakTujuanController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\TinjauLaporanController;
 use App\Http\Controllers\WilayahController;
 use Illuminate\Support\Facades\Route;
 
@@ -18,20 +20,22 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-
     Route::middleware('role:pelapor')->group(function () {
         Route::get('/laporan/create', [LaporanController::class, 'create'])->name('laporan.create');
         Route::post('/laporan', [LaporanController::class, 'store'])->name('laporan.store');
+        Route::get('/laporan/{laporan}/edit', [LaporanController::class, 'edit'])->name('laporan.edit');
+        Route::put('/laporan/{laporan}', [LaporanController::class, 'update'])->name('laporan.update');
     });
+
+    Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
+    Route::get('/laporan/{laporan}', [LaporanController::class, 'show'])->name('laporan.show');
+    Route::get('/laporan/{laporan}/bukti', [LaporanController::class, 'bukti'])->name('laporan.bukti');
+
+    Route::get('/wilayah/{desa}/laporan-aktif', [AreaInfoController::class, 'laporanAktif'])->name('wilayah.laporan-aktif');
 
     Route::post('/laporan/{laporan}/tinjau', [TinjauLaporanController::class, 'store'])
         ->middleware('role:relawan')
         ->name('laporan.tinjau');
-    Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan.index');
-    Route::get('/laporan/{laporan}/edit', [LaporanController::class, 'edit'])->name('laporan.edit');
-    Route::put('/laporan/{laporan}', [LaporanController::class, 'update'])->name('laporan.update');
-    Route::get('/laporan/{laporan}', [LaporanController::class, 'show'])->name('laporan.show');
-    Route::get('/laporan/{laporan}/bukti', [LaporanController::class, 'bukti'])->name('laporan.bukti');
 
     Route::middleware('role:koordinator')->group(function () {
         Route::post('/laporan/{laporan}/penerusan', [PenerusanLaporanController::class, 'store'])->name('laporan.penerusan');

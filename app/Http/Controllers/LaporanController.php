@@ -22,7 +22,10 @@ class LaporanController extends Controller
             $query->where('pelapor_id', $request->user()->id);
         }
 
-        return view('laporan.index', ['laporans' => $query->paginate(10)]);
+        return view('laporan.index', [
+            'laporans' => $query->paginate(10),
+            'desa' => DesaKelurahan::with('kecamatan')->orderBy('nama')->get(),
+        ]);
     }
 
     public function create()
